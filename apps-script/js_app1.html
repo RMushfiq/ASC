@@ -3,7 +3,6 @@
 
 var KEYS = ["mac","win","setyl"];
 var LABEL = {mac:"Mac", win:"Windows", setyl:"Sites & Apps"};
-var CHIPS = ["PDF","Notetaker","Video editing","Screenshots","Browsers","Databases","AI"];
 
 var state = {tab:"mac", q:"", cat:{}};
 KEYS.forEach(function(k){state.cat[k]={status:"loading",apps:[],err:"",updated:null};});

@@ -55,13 +55,19 @@ var HEADER = ['Application Name', 'Install Options', 'Description', 'Auth Method
 
 /* ===================== WEB APP ===================== */
 
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.refresh) refreshNow();   // /exec?refresh=1 → skip the 5-min cache
   var t = HtmlService.createTemplateFromFile('index');
   t.appUrl = ScriptApp.getService().getUrl();
   return t.evaluate()
     .setTitle('Approved Software Catalog')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/** Manual refresh: clears the cache so the next page load reads the Sheets fresh. Run from the editor or open /exec?refresh=1. */
+function refreshNow() {
+  CacheService.getScriptCache().removeAll(Object.keys(CATALOGS).map(function (k) { return 'cat_' + k; }));
 }
 
 /** Inlines another HTML file into index (<?!= include('css') ?>). Keeps each file small enough to paste. */

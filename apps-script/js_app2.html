@@ -1,25 +1,29 @@
 <script>
+/* "How to get it": the label is the Sheet's Install Options value as-is, so editing
+   the Sheet updates the site. The explanation is picked by keyword:
+   self-service · service-desk · managed. Anything else gets a safe generic line. */
+var SD_TICKET="raise a ticket in the <b>#global-service-desk</b> Slack channel";
 function howToGet(a,key){
-  var s=(a.install||"").toLowerCase();
+  var s=(a.install||"").toLowerCase(), label=a.install;
   if(key==="setyl"){
     var okta=/okta/i.test(a.auth);
     return {cls:"m-ticket",chip:"Request access",
-      html:"Raise a <b>service-desk ticket in HappyFox</b> to request access"
+      html:"To request access, "+SD_TICKET
         +(okta?". Once approved it appears in your <b>Okta dashboard</b>.":" — IT Ops will set you up.")};
   }
   if(s.indexOf("self-service")>-1){
-    var portal=key==="mac"?"Kandji Self Service":"Company Portal";
-    return {cls:"m-self",chip:"Self-service",
+    var portal=key==="mac"?"Iru Self-Service":"Company Portal";
+    return {cls:"m-self",chip:label,
       html:"Install it yourself: open the <b>"+portal+"</b> app on your "+(key==="mac"?"Mac":"Windows laptop")+" and hit install. No ticket needed."};
   }
   if(s.indexOf("service-desk")>-1)
-    return {cls:"m-ticket",chip:"Service-desk ticket",
-      html:"Raise a <b>service-desk ticket in HappyFox</b> with a short business justification — IT Ops will install it for you."};
-  if(s.indexOf("provisioned")>-1)
-    return {cls:"m-itops",chip:"Managed by IT Ops",
-      html:"Comes pre-installed and managed by <b>IT Ops</b>. If it’s missing from your device, raise a service-desk ticket in HappyFox."};
-  return {cls:"m-ticket",chip:install||"Ask IT Ops",
-    html:"Raise a <b>service-desk ticket in HappyFox</b> and IT Ops will point you in the right direction."};
+    return {cls:"m-ticket",chip:label,
+      html:"Raise a ticket in the <b>#global-service-desk</b> Slack channel with a short business justification — IT Ops will install it for you."};
+  if(s.indexOf("managed")>-1||s.indexOf("provisioned")>-1)
+    return {cls:"m-itops",chip:label,
+      html:"Comes pre-installed and managed by <b>IT Ops</b>. If it’s missing from your device, "+SD_TICKET+"."};
+  return {cls:"m-ticket",chip:label||"Ask IT Ops",
+    html:"Not sure how to get this one — "+SD_TICKET+" and IT Ops will point you in the right direction."};
 }
 
 function cardHTML(a,key){

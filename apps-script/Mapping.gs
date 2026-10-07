@@ -28,7 +28,7 @@ function toRow_(rec) {
   var f = SETYL.fields, auth = pick_(rec, f.auth);
   return [
     pick_(rec, f.name),
-    'Raise a service-desk ticket',          // SaaS access requests go via HappyFox
+    'Global-service-desk ticket',           // SaaS access requests go via #global-service-desk
     pick_(rec, f.description),
     /[_a-z]/.test(auth) && auth === auth.toLowerCase() ? nice_(auth) : auth,
     pick_(rec, f.status),

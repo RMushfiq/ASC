@@ -11,12 +11,12 @@ function render(){
     results.innerHTML='<div class="panel"><div class="spin"></div>Loading the latest catalog…</div>';
   } else if(cat.status==="pending"){
     results.innerHTML='<div class="panel soon"><h2>Sites &amp; Apps — coming soon</h2>'
-      +"<p>The Setyl register sync hasn’t run yet. Until then: to request access to a web app, raise a <b>service-desk ticket in HappyFox</b>; "
+      +"<p>The Setyl register sync hasn’t run yet. Until then: to request access to a web app, raise a ticket in the <b>#global-service-desk</b> Slack channel; "
       +"to request something new, raise a <b>Procurement request via HappyFox</b>.</p></div>";
   } else if(cat.status==="error"){
     results.innerHTML='<div class="panel warn"><h2>Catalog data unavailable</h2>'
       +"<p>We couldn’t load the "+LABEL[key]+" catalog just now — please try again shortly. "
-      +"If this keeps happening, let IT Ops know via a service-desk ticket.</p>"
+      +"If this keeps happening, let IT Ops know in the #global-service-desk Slack channel.</p>"
       +'<button id="retry">Try again</button></div>';
     document.getElementById("retry").onclick=function(){load(key);};
   } else {
@@ -54,11 +54,6 @@ document.getElementById("tabs").addEventListener("click",function(e){
 var qEl=document.getElementById("q");
 qEl.addEventListener("input",function(){state.q=qEl.value;render();});
 document.getElementById("clear").onclick=function(){qEl.value="";state.q="";render();qEl.focus();};
-var chipsEl=document.getElementById("chips");
-chipsEl.innerHTML=CHIPS.map(function(c){return '<button class="chip">'+c+"</button>";}).join("");
-chipsEl.addEventListener("click",function(e){
-  if(e.target.classList.contains("chip")){qEl.value=e.target.textContent;state.q=qEl.value;render();}
-});
 
 KEYS.forEach(load);
 </script>
