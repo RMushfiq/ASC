@@ -59,26 +59,35 @@ function isApproved_(r) {
   return SETYL.includeStatuses.indexOf(String(r.state_name || '').toLowerCase()) > -1;
 }
 
-/** GET /apps/{uuid} for each record, 10 at a time. Detail fields override list fields; failures keep list data. */
-function withDetails_(records) {
-  var opts = getOpts_(), out = [], failed = 0;
-  for (var i = 0; i < records.length; i += 10) {
-    var batch = records.slice(i, i + 10);
-    var reqs = batch.map(function (r) {
-      return Object.assign({ url: SETYL.base + SETYL.appsPath + '/' + encodeURIComponent(r.uuid) }, opts);
+var OWNER_NAMES_ = {};   // uuid → display name, filled by resolveOwners_()
+
+/** Resolves owner refs ({uuid, url}) to names: one read-only GET per unique person, 10 at a time. */
+function resolveOwners_(records) {
+  var opts = getOpts_(), refs = {}, failed = 0, resolved = 0, sampleKeys = '';
+  records.forEach(function (r) {
+    [].concat(r.administrators || [], r.technical_owners_list || []).forEach(function (o) {
+      // Only follow links back into the Setyl API — never an arbitrary host.
+      if (o && o.uuid && o.url && o.url.indexOf(SETYL.base + '/') === 0 && !OWNER_NAMES_[o.uuid]) refs[o.uuid] = o.url;
     });
-    UrlFetchApp.fetchAll(reqs).forEach(function (res, j) {
-      var merged = Object.assign({}, batch[j]);
-      try {
-        if (res.getResponseCode() !== 200) throw 0;
-        var body = JSON.parse(res.getContentText() || '{}');
-        Object.assign(merged, body.data && !Array.isArray(body.data) ? body.data : body);
-      } catch (e) { failed++; }
-      out.push(merged);
-    });
-    if (i + 10 < records.length) Utilities.sleep(300);
+  });
+  var ids = Object.keys(refs);
+  for (var i = 0; i < ids.length; i += 10) {
+    var batch = ids.slice(i, i + 10);
+    UrlFetchApp.fetchAll(batch.map(function (id) { return Object.assign({ url: refs[id] }, opts); }))
+      .forEach(function (res, j) {
+        try {
+          if (res.getResponseCode() !== 200) throw 0;
+          var b = JSON.parse(res.getContentText() || '{}'), p = b.data && !Array.isArray(b.data) ? b.data : b;
+          if (!sampleKeys) sampleKeys = Object.keys(p).join(', ');
+          var n = p.full_name || p.display_name || p.name ||
+                  [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || '';
+          if (!n) throw 0;
+          OWNER_NAMES_[batch[j]] = n; resolved++;
+        } catch (e) { failed++; }
+      });
+    if (i + 10 < ids.length) Utilities.sleep(300);
   }
-  return { records: out, failed: failed };
+  return { resolved: resolved, failed: failed, sampleKeys: sampleKeys };
 }
 
 /** Accepts a bare array or common envelope shapes ({data:[]}, {items:[]}, {results:[]}, {apps:[]}). */
@@ -102,7 +111,8 @@ function pick_(rec, names) {
 }
 
 function label_(o) {
-  return o && typeof o === 'object' ? String(o.full_name || o.name || o.email || '') : String(o || '');
+  if (!o || typeof o !== 'object') return String(o || '');
+  return String(OWNER_NAMES_[o.uuid] || o.full_name || o.name || o.email || '');   // unresolved uuid → blank
 }
 
 /** 'okta_sso' → 'Okta SSO' */

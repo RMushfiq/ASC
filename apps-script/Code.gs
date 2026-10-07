@@ -32,14 +32,13 @@ var SETYL = {
   base: 'https://app.setyl.com/api/v1',
   appsPath: '/apps',      // read via GET only — POST on this path CREATES an app in Setyl
   maxPages: 100,          // 50 apps/page → 5,000 apps max; guards against a cursor loop
-  fetchDetails: true,     // GET /apps/{uuid} per approved app — the list call has no description
   // Setyl field per sheet column (confirmed from testSetyl, 7 Oct 2026). First non-empty match wins.
   fields: {
     name:        ['name'],
-    description: ['description'],          // from the detail record
+    description: ['description'],          // not in Setyl API as of 7 Oct 2026 (UI-only) — picked up automatically if added
     status:      ['human_state_name', 'state_name'],
-    bizOwner:    ['administrators', 'business_owners', 'business_owner'],
-    techOwner:   ['technical_owners_list', 'technical_owners'],
+    bizOwner:    ['administrators'],          // [{uuid, url}] → names resolved via GET on each url
+    techOwner:   ['technical_owners_list'],
     auth:        ['auth_method']
     // 'notes' deliberately not mapped — internal to Setyl, not published to staff
   },
