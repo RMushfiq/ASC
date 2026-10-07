@@ -30,10 +30,7 @@ var CATALOGS = {
 
 var SETYL = {
   base: 'https://app.setyl.com/api/v1',
-  // CONFIRM against developers.setyl.com (Endpoints → Apps/Software). Run testSetyl() to verify.
-  appsPath: '/apps',
-  // Setyl's documented list calls take the cursor in a JSON body (POST). Switch to 'get' if the apps endpoint differs.
-  method: 'post',
+  appsPath: '/apps',      // read via GET only — POST on this path CREATES an app in Setyl
   maxPages: 100,          // hard stop: guards against a cursor loop
   // Candidate field names per column — first non-empty match wins. Adjust after testSetyl().
   fields: {

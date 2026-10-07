@@ -77,14 +77,13 @@ function setylRequest_(cursor) {
   if (!apiKey || !consumer) throw new Error('Missing Script Properties SETYL_API_KEY / SETYL_CONSUMER_ID.');
 
   var url = SETYL.base + SETYL.appsPath;
+  if (cursor) url += '?cursor=' + encodeURIComponent(cursor);
+  // Read-only by design: GET only, no payload. Never change to POST — that creates records in Setyl.
   var opts = {
-    method: SETYL.method,
+    method: 'get',
     muteHttpExceptions: true,
-    contentType: 'application/json',
-    headers: { 'Authorization': 'Bearer ' + apiKey, 'X-Setyl-Consumer-ID': consumer }
+    headers: { 'Authorization': 'Bearer ' + apiKey, 'X-Setyl-Consumer-ID': consumer, 'Accept': 'application/json' }
   };
-  if (SETYL.method === 'post') opts.payload = JSON.stringify(cursor ? { cursor: cursor } : {});
-  else if (cursor) url += '?cursor=' + encodeURIComponent(cursor);
 
   for (var attempt = 1; attempt <= 4; attempt++) {
     var res = UrlFetchApp.fetch(url, opts);
