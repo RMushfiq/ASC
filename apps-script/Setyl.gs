@@ -19,9 +19,9 @@ function syncSetyl() {
     var all = fetchAllSetyl_(), records = all.records;
     pages = all.pages;
 
-    var rows = records.map(toRow_).filter(function (r) {
-      return r[0] && SETYL.includeStatuses.indexOf(r[4].toLowerCase()) > -1;
-    });
+    var approved = records.filter(isApproved_);
+    var det = SETYL.fetchDetails ? withDetails_(approved) : { records: approved, failed: 0 };
+    var rows = det.records.map(toRow_).filter(function (r) { return r[0]; });
     rows.sort(function (a, b) { return a[0].localeCompare(b[0]); });
 
     // Safety net: never blank the live catalog because of an empty/odd API response.
@@ -35,7 +35,8 @@ function syncSetyl() {
     var now = new Date().toISOString();
     PropertiesService.getScriptProperties().setProperty('SETYL_LAST_SYNC', now);
     CacheService.getScriptCache().remove('cat_setyl');
-    logSync_('OK', rows.length, pages, started, '');
+    logSync_('OK', rows.length, pages, started,
+      records.length + ' in Setyl; ' + det.failed + ' detail lookups failed (list data used)');
   } catch (err) {
     logSync_('FAILED', 0, pages, started, String(err && err.message || err));
     alertOwner_(err);
@@ -61,6 +62,13 @@ function testSetyl() {
   Logger.log('Auth methods: ' + JSON.stringify(auth));
   var withAdmin = all.records.filter(function (r) { return r.administrators && r.administrators.length; })[0];
   if (withAdmin) Logger.log('Administrators sample: ' + JSON.stringify(withAdmin.administrators).slice(0, 300));
-  Logger.log('Allowlist now: ' + JSON.stringify(SETYL.includeStatuses));
+  var ok = all.records.filter(isApproved_);
+  Logger.log('Would publish: ' + ok.length + ' approved apps (allowlist ' + JSON.stringify(SETYL.includeStatuses) + ')');
+  var sample = ok.filter(function (r) { return /asana/i.test(r.name); })[0] || ok[0];
+  if (sample) {
+    var d = withDetails_([sample]).records[0];
+    Logger.log('Detail keys (' + sample.name + '): ' + Object.keys(d).join(', '));
+    Logger.log('Mapped row: ' + JSON.stringify(toRow_(d)));
+  }
 }
 

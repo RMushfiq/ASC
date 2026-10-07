@@ -10,20 +10,23 @@ function catalogId_(key) {
     : CATALOGS[key].id;
 }
 
-function setylRequest_(cursor) {
+/** Read-only by design: GET only, no payload. Never change to POST — that creates records in Setyl. */
+function getOpts_() {
   var props = PropertiesService.getScriptProperties();
   var apiKey = props.getProperty('SETYL_API_KEY');
   var consumer = props.getProperty('SETYL_CONSUMER_ID');
   if (!apiKey || !consumer) throw new Error('Missing Script Properties SETYL_API_KEY / SETYL_CONSUMER_ID.');
-
-  var url = SETYL.base + SETYL.appsPath;
-  if (cursor) url += '?cursor=' + encodeURIComponent(cursor);
-  // Read-only by design: GET only, no payload. Never change to POST — that creates records in Setyl.
-  var opts = {
+  return {
     method: 'get',
     muteHttpExceptions: true,
     headers: { 'Authorization': 'Bearer ' + apiKey, 'X-Setyl-Consumer-ID': consumer, 'Accept': 'application/json' }
   };
+}
+
+function setylRequest_(cursor) {
+  var url = SETYL.base + SETYL.appsPath;
+  if (cursor) url += '?cursor=' + encodeURIComponent(cursor);
+  var opts = getOpts_();
 
   for (var attempt = 1; attempt <= 4; attempt++) {
     var res = UrlFetchApp.fetch(url, opts);
@@ -52,6 +55,32 @@ function fetchAllSetyl_() {
   return { records: records, pages: pages };
 }
 
+function isApproved_(r) {
+  return SETYL.includeStatuses.indexOf(String(r.state_name || '').toLowerCase()) > -1;
+}
+
+/** GET /apps/{uuid} for each record, 10 at a time. Detail fields override list fields; failures keep list data. */
+function withDetails_(records) {
+  var opts = getOpts_(), out = [], failed = 0;
+  for (var i = 0; i < records.length; i += 10) {
+    var batch = records.slice(i, i + 10);
+    var reqs = batch.map(function (r) {
+      return Object.assign({ url: SETYL.base + SETYL.appsPath + '/' + encodeURIComponent(r.uuid) }, opts);
+    });
+    UrlFetchApp.fetchAll(reqs).forEach(function (res, j) {
+      var merged = Object.assign({}, batch[j]);
+      try {
+        if (res.getResponseCode() !== 200) throw 0;
+        var body = JSON.parse(res.getContentText() || '{}');
+        Object.assign(merged, body.data && !Array.isArray(body.data) ? body.data : body);
+      } catch (e) { failed++; }
+      out.push(merged);
+    });
+    if (i + 10 < records.length) Utilities.sleep(300);
+  }
+  return { records: out, failed: failed };
+}
+
 /** Accepts a bare array or common envelope shapes ({data:[]}, {items:[]}, {results:[]}, {apps:[]}). */
 function extractList_(body) {
   if (Array.isArray(body)) return body;
@@ -76,16 +105,22 @@ function label_(o) {
   return o && typeof o === 'object' ? String(o.full_name || o.name || o.email || '') : String(o || '');
 }
 
+/** 'okta_sso' → 'Okta SSO' */
+function nice_(v) {
+  return String(v || '').replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); })
+    .replace(/\b(Sso|Saml|Mfa|Oidc|Scim|Api)\b/g, function (w) { return w.toUpperCase(); });
+}
+
 function toRow_(rec) {
-  var f = SETYL.fields;
+  var f = SETYL.fields, auth = pick_(rec, f.auth);
   return [
     pick_(rec, f.name),
-    'Raise a service-desk ticket',          // How-to-get for SaaS: access requests go via HappyFox
+    'Raise a service-desk ticket',          // SaaS access requests go via HappyFox
     pick_(rec, f.description),
-    pick_(rec, f.category),
+    /[_a-z]/.test(auth) && auth === auth.toLowerCase() ? nice_(auth) : auth,
     pick_(rec, f.status),
-    pick_(rec, f.owner),
-    pick_(rec, f.url)
+    pick_(rec, f.bizOwner),
+    pick_(rec, f.techOwner)
   ];
 }
 

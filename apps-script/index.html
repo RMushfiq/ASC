@@ -32,6 +32,8 @@
   .b-ai{background:#FEF3C7;color:#92400E;font-weight:600}
   .b-cat{background:#EFEDE6;color:#4B473E;font-weight:600}
   .desc{font-size:.9rem;color:#4B473E;flex:1}
+  .owners{font-size:.82rem;color:#6B675E;display:flex;flex-direction:column;gap:2px}
+  .owners b{color:#4B473E;font-weight:600}
   .desc.pending{color:#8A8578;font-style:italic}
   .how{border-top:1px solid #F0EEE7;padding-top:10px;font-size:.86rem;color:#4B473E}
   .how .hlabel{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#8A8578;display:block;margin-bottom:3px}
@@ -182,17 +184,28 @@ function stripVer(name){
   }).join(" ").trim();
 }
 
-/* rows: [name, install, description, category?, ...] — header row optional. */
+/* rows: header row + data. Columns are looked up by header name, so Mac/Windows
+   (3 columns) and Setyl (7 columns) share one parser. */
 function buildApps(rows){
-  var apps=[], start=(rows.length && /application\s*name/i.test(rows[0][0]||""))?1:0;
+  var apps=[], col={name:0,install:1,desc:2}, start=0;
+  if(rows.length && /application\s*name/i.test(rows[0][0]||"")){
+    start=1;
+    rows[0].forEach(function(h,i){
+      var k={"application name":"name","install options":"install","description":"desc","auth method":"auth",
+             "status":"status","business owner":"biz","technical owner":"tech"}[String(h).trim().toLowerCase()];
+      if(k) col[k]=i;
+    });
+  }
+  function v(r,k){return col[k]===undefined?"":String(r[col[k]]||"").trim();}
   for(var i=start;i<rows.length;i++){
-    var r=rows[i], name=String(r[0]||"").trim();
+    var r=rows[i], name=v(r,"name");
     if(!name) continue;
-    var install=String(r[1]||"").trim(), desc=String(r[2]||"").trim(), cat=String(r[3]||"").trim();
-    var e=ENRICH[name.toLowerCase()]||ENRICH[stripVer(name)]||{}, ai=false;
+    var desc=v(r,"desc"), e=ENRICH[name.toLowerCase()]||ENRICH[stripVer(name)]||{}, ai=false;
     if(!desc && e.d){desc=e.d;ai=true;}
-    apps.push({name:name,install:install,desc:desc,ai:ai,cat:cat,
-      hay:(name+" "+(e.t||"")+" "+cat+" "+desc).toLowerCase()});
+    var a={name:name,install:v(r,"install"),desc:desc,ai:ai,auth:v(r,"auth"),status:v(r,"status"),
+           biz:v(r,"biz"),tech:v(r,"tech")};
+    a.hay=[name,e.t||"",a.auth,desc,a.biz,a.tech].join(" ").toLowerCase();
+    apps.push(a);
   }
   apps.sort(function(a,b){return a.name.localeCompare(b.name);});
   return apps;
@@ -241,11 +254,14 @@ function searchApps(q,apps){
   return out.map(function(o){return o.a;});
 }
 
-function howToGet(install,key){
-  var s=(install||"").toLowerCase();
-  if(key==="setyl")
+function howToGet(a,key){
+  var s=(a.install||"").toLowerCase();
+  if(key==="setyl"){
+    var okta=/okta/i.test(a.auth);
     return {cls:"m-ticket",chip:"Request access",
-      html:"Raise a <b>service-desk ticket in HappyFox</b> to request access — IT Ops will set you up (usually via Okta SSO)."};
+      html:"Raise a <b>service-desk ticket in HappyFox</b> to request access"
+        +(okta?". Once approved it appears in your <b>Okta dashboard</b>.":" — IT Ops will set you up.")};
+  }
   if(s.indexOf("self-service")>-1){
     var portal=key==="mac"?"Kandji Self Service":"Company Portal";
     return {cls:"m-self",chip:"Self-service",
@@ -262,13 +278,16 @@ function howToGet(install,key){
 }
 
 function cardHTML(a,key){
-  var how=howToGet(a.install,key);
+  var how=howToGet(a,key);
   var descHtml=a.desc
     ? '<div class="desc">'+esc(a.desc)+(a.ai?' <span class="badge b-ai">AI-drafted — needs InfoSec confirmation</span>':"")+"</div>"
     : '<div class="desc pending">Description pending InfoSec review.</div>';
   return '<div class="card"><div><h3>'+esc(a.name)+'</h3><span class="badge b-ok">✓ Approved</span>'
-    +(a.cat?' <span class="badge b-cat">'+esc(a.cat)+"</span>":"")+"</div>"
+    +(/onboard/i.test(a.status)?' <span class="badge b-cat">Onboarding</span>':"")
+    +(a.auth?' <span class="badge b-cat">'+esc(a.auth)+"</span>":"")+"</div>"
     +descHtml
+    +(a.biz||a.tech?'<div class="owners">'+(a.biz?"<span><b>Business owner:</b> "+esc(a.biz)+"</span>":"")
+      +(a.tech?"<span><b>Technical owner:</b> "+esc(a.tech)+"</span>":"")+"</div>":"")
     +'<div class="how"><span class="hlabel">How to get it</span><span class="mchip '+how.cls+'">'+esc(how.chip)+"</span><div>"+how.html+"</div></div></div>";
 }
 

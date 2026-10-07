@@ -16,7 +16,7 @@ Apps Script hosts the page and reads data server-side as the script owner. No pu
    - Add script files `Setyl` and `Helpers` (+ → Script) → paste `apps-script/Setyl.gs` and `apps-script/Helpers.gs`.
    - Add HTML file named exactly `index` → paste `apps-script/index.html`.
 3. **Project Settings → Script Properties**: add `SETYL_API_KEY` and `SETYL_CONSUMER_ID`.
-4. Run **`testSetyl`** (read-only) → review state counts in the log → set `SETYL.includeStatuses` in Code.gs to the states InfoSec counts as approved. `syncSetyl` refuses to run while it is empty.
+4. Run **`testSetyl`** (read-only) → check state counts, "Would publish" count and the Asana mapped row in the log.
 5. Run **`setup`** → creates the Setyl cache Sheet + `Sync Log` tab, installs the daily trigger, runs the first sync.
 6. **Deploy → New deployment → Web app**: Execute as *Me*, Access *Anyone within pensionbee.com*. Copy the `/exec` URL.
 7. **Google Sites** → Insert → Embed → *By URL* → paste `/exec` URL.

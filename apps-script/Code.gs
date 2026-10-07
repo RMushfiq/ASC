@@ -32,24 +32,27 @@ var SETYL = {
   base: 'https://app.setyl.com/api/v1',
   appsPath: '/apps',      // read via GET only — POST on this path CREATES an app in Setyl
   maxPages: 100,          // 50 apps/page → 5,000 apps max; guards against a cursor loop
+  fetchDetails: true,     // GET /apps/{uuid} per approved app — the list call has no description
   // Setyl field per sheet column (confirmed from testSetyl, 7 Oct 2026). First non-empty match wins.
   fields: {
     name:        ['name'],
-    description: [],                  // Setyl has no description field. 'notes' is internal — not published.
-    category:    [],
-    status:      ['state_name'],      // detected / onboarding / registered? / unapproved / ignored — see testSetyl
-    owner:       ['administrators'],
-    url:         []                   // 'url' / 'view_url' are Setyl links, not the vendor site — not published
+    description: ['description'],          // from the detail record
+    status:      ['human_state_name', 'state_name'],
+    bizOwner:    ['administrators', 'business_owners', 'business_owner'],
+    techOwner:   ['technical_owners_list', 'technical_owners'],
+    auth:        ['auth_method']
+    // 'notes' deliberately not mapped — internal to Setyl, not published to staff
   },
-  // REQUIRED allowlist of state_name values shown as "Approved" (lower-case).
-  // Left empty on purpose: syncSetyl() refuses to run until InfoSec confirms which states count as approved.
-  includeStatuses: []
+  // state_name values shown as "Approved" (lower-case). Confirmed by Rahim, 7 Oct 2026.
+  // 'register' and 'registered' both listed: Setyl shows "Register" in the UI.
+  includeStatuses: ['register', 'registered', 'onboarding']
 };
 
 var CACHE_SECONDS = 300;           // sheet edits visible within 5 minutes
 var SYNC_HOUR = 6;                 // daily Setyl sync, ~06:00 script timezone
 var LOG_TAB = 'Sync Log';          // audit trail of every sync, in the Setyl cache Sheet
-var HEADER = ['Application Name', 'Install Options', 'Description', 'Category', 'Status', 'Owner', 'Website'];
+var HEADER = ['Application Name', 'Install Options', 'Description', 'Auth Method', 'Status',
+              'Business Owner', 'Technical Owner'];
 
 /* ===================== WEB APP ===================== */
 
