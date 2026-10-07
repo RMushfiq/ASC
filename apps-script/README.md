@@ -13,7 +13,7 @@ Apps Script hosts the page and reads data server-side as the script owner. No pu
 1. **Setyl** → Company Settings → API Service → *Generate API Key* (Owner role needed). Copy the key once; it isn't shown again.
 2. **script.google.com** → New project → name `ASC - Approved Software Catalog`.
    - Replace `Code.gs` with `apps-script/Code.gs`.
-   - Add script files `Setyl` and `Helpers` (+ → Script) → paste `apps-script/Setyl.gs` and `apps-script/Helpers.gs`.
+   - Add script files `Setyl`, `Helpers` and `Mapping` (+ → Script) → paste the matching `apps-script/*.gs` file into each.
    - Add HTML file named exactly `index` → paste `apps-script/index.html`.
 3. **Project Settings → Script Properties**: add `SETYL_API_KEY` and `SETYL_CONSUMER_ID`.
 4. Run **`testSetyl`** (read-only) → check state counts, "Would publish" count and the Asana mapped row in the log.
