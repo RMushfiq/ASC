@@ -13,10 +13,10 @@ Apps Script hosts the page and reads data server-side as the script owner. No pu
 1. **Setyl** → Company Settings → API Service → *Generate API Key* (Owner role needed). Copy the key once; it isn't shown again.
 2. **script.google.com** → New project → name `ASC - Approved Software Catalog`.
    - Replace `Code.gs` with `apps-script/Code.gs`.
-   - Add script file `Setyl` (+ → Script) → paste `apps-script/Setyl.gs`.
+   - Add script files `Setyl` and `Helpers` (+ → Script) → paste `apps-script/Setyl.gs` and `apps-script/Helpers.gs`.
    - Add HTML file named exactly `index` → paste `apps-script/index.html`.
 3. **Project Settings → Script Properties**: add `SETYL_API_KEY` and `SETYL_CONSUMER_ID`.
-4. Run **`testSetyl`** → authorise → check Execution log. Confirm `SETYL.appsPath` returns records and that `fields` names match the "First record keys" line. Adjust config if not.
+4. Run **`testSetyl`** (read-only) → review state counts in the log → set `SETYL.includeStatuses` in Code.gs to the states InfoSec counts as approved. `syncSetyl` refuses to run while it is empty.
 5. Run **`setup`** → creates the Setyl cache Sheet + `Sync Log` tab, installs the daily trigger, runs the first sync.
 6. **Deploy → New deployment → Web app**: Execute as *Me*, Access *Anyone within pensionbee.com*. Copy the `/exec` URL.
 7. **Google Sites** → Insert → Embed → *By URL* → paste `/exec` URL.

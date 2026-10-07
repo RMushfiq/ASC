@@ -13,18 +13,14 @@ function syncSetyl() {
     var id = catalogId_('setyl');
     if (!id) throw new Error('Run setup() first — no Setyl Sheet configured.');
 
-    var records = [], cursor = null;
-    do {
-      var body = setylRequest_(cursor);
-      records = records.concat(extractList_(body));
-      cursor = body && (body.cursor || (body.meta && body.meta.cursor) || null);
-      pages++;
-    } while (cursor && pages < SETYL.maxPages);
-    if (cursor) throw new Error('Hit maxPages (' + SETYL.maxPages + ') with more data pending — raise SETYL.maxPages.');
+    // Never publish unvetted states (unapproved / ignored / detected) as "Approved".
+    if (!SETYL.includeStatuses.length) throw new Error('SETYL.includeStatuses is empty — set the approved Setyl states in Code.gs first.');
+
+    var all = fetchAllSetyl_(), records = all.records;
+    pages = all.pages;
 
     var rows = records.map(toRow_).filter(function (r) {
-      if (!r[0]) return false;
-      return !SETYL.includeStatuses.length || SETYL.includeStatuses.indexOf(r[4].toLowerCase()) > -1;
+      return r[0] && SETYL.includeStatuses.indexOf(r[4].toLowerCase()) > -1;
     });
     rows.sort(function (a, b) { return a[0].localeCompare(b[0]); });
 
@@ -49,99 +45,22 @@ function syncSetyl() {
   }
 }
 
-/** Diagnostic: logs the first page of the Setyl response so you can confirm endpoint + field names. */
+/** Read-only diagnostic: walks every page and summarises states. Writes nothing anywhere. */
 function testSetyl() {
-  var body = setylRequest_(null);
-  var list = extractList_(body);
-  Logger.log('Top-level keys: ' + Object.keys(body || {}).join(', '));
-  Logger.log('Records on page 1: ' + list.length + ' · cursor present: ' + !!(body && body.cursor));
-  if (list[0]) {
-    Logger.log('First record keys: ' + Object.keys(list[0]).join(', '));
-    Logger.log('First record: ' + JSON.stringify(list[0]).slice(0, 1500));
-    Logger.log('Mapped row: ' + JSON.stringify(toRow_(list[0])));
-  }
+  var all = fetchAllSetyl_(), states = {}, auth = {};
+  all.records.forEach(function (r) {
+    var st = String(r.state_name || '(none)') + ' / ' + String(r.human_state_name || '');
+    (states[st] = states[st] || []).push(r.name);
+    var am = String(r.auth_method || '(none)');
+    auth[am] = (auth[am] || 0) + 1;
+  });
+  Logger.log('Total apps: ' + all.records.length + ' across ' + all.pages + ' page(s)');
+  Object.keys(states).sort().forEach(function (k) {
+    Logger.log('State ' + k + ': ' + states[k].length + ' — e.g. ' + states[k].slice(0, 8).join(', '));
+  });
+  Logger.log('Auth methods: ' + JSON.stringify(auth));
+  var withAdmin = all.records.filter(function (r) { return r.administrators && r.administrators.length; })[0];
+  if (withAdmin) Logger.log('Administrators sample: ' + JSON.stringify(withAdmin.administrators).slice(0, 300));
+  Logger.log('Allowlist now: ' + JSON.stringify(SETYL.includeStatuses));
 }
 
-/* ===================== HELPERS ===================== */
-
-function catalogId_(key) {
-  return key === 'setyl'
-    ? PropertiesService.getScriptProperties().getProperty('SETYL_SHEET_ID')
-    : CATALOGS[key].id;
-}
-
-function setylRequest_(cursor) {
-  var props = PropertiesService.getScriptProperties();
-  var apiKey = props.getProperty('SETYL_API_KEY');
-  var consumer = props.getProperty('SETYL_CONSUMER_ID');
-  if (!apiKey || !consumer) throw new Error('Missing Script Properties SETYL_API_KEY / SETYL_CONSUMER_ID.');
-
-  var url = SETYL.base + SETYL.appsPath;
-  if (cursor) url += '?cursor=' + encodeURIComponent(cursor);
-  // Read-only by design: GET only, no payload. Never change to POST — that creates records in Setyl.
-  var opts = {
-    method: 'get',
-    muteHttpExceptions: true,
-    headers: { 'Authorization': 'Bearer ' + apiKey, 'X-Setyl-Consumer-ID': consumer, 'Accept': 'application/json' }
-  };
-
-  for (var attempt = 1; attempt <= 4; attempt++) {
-    var res = UrlFetchApp.fetch(url, opts);
-    var code = res.getResponseCode();
-    if (code >= 200 && code < 300) return JSON.parse(res.getContentText() || '{}');
-    if ((code === 429 || code >= 500) && attempt < 4) { Utilities.sleep(Math.pow(2, attempt) * 1000); continue; }
-    // Never log headers — they contain the API key.
-    throw new Error('Setyl HTTP ' + code + ' on ' + SETYL.appsPath + ': ' + res.getContentText().slice(0, 300));
-  }
-}
-
-/** Accepts a bare array or common envelope shapes ({data:[]}, {items:[]}, {results:[]}, {apps:[]}). */
-function extractList_(body) {
-  if (Array.isArray(body)) return body;
-  if (!body) return [];
-  var keys = ['data', 'items', 'results', 'apps', 'records'];
-  for (var i = 0; i < keys.length; i++) if (Array.isArray(body[keys[i]])) return body[keys[i]];
-  return [];
-}
-
-function pick_(rec, names) {
-  for (var i = 0; i < names.length; i++) {
-    var v = rec[names[i]];
-    if (v === null || v === undefined || v === '') continue;
-    if (typeof v === 'object') v = v.name || v.full_name || v.email || v.title || JSON.stringify(v);
-    return String(v).trim();
-  }
-  return '';
-}
-
-function toRow_(rec) {
-  var f = SETYL.fields;
-  return [
-    pick_(rec, f.name),
-    'Raise a service-desk ticket',          // How-to-get for SaaS: access requests go via HappyFox
-    pick_(rec, f.description),
-    pick_(rec, f.category),
-    pick_(rec, f.status),
-    pick_(rec, f.owner),
-    pick_(rec, f.url)
-  ];
-}
-
-function logSync_(result, count, pages, started, detail) {
-  try {
-    var id = catalogId_('setyl');
-    if (!id) return;
-    var ss = SpreadsheetApp.openById(id);
-    var sh = ss.getSheetByName(LOG_TAB) || ss.insertSheet(LOG_TAB);
-    sh.appendRow([new Date(), result, count, pages, Math.round((Date.now() - started) / 1000), detail]);
-  } catch (e) { Logger.log('Could not write sync log: ' + e); }
-}
-
-function alertOwner_(err) {
-  try {
-    var to = Session.getEffectiveUser().getEmail();
-    if (to) MailApp.sendEmail(to, '[ASC] Setyl sync failed',
-      'The daily Setyl → ASC sync failed. The intranet is still showing the last good data.\n\n' +
-      'Error: ' + (err && err.message || err) + '\n\nCheck the "' + LOG_TAB + '" tab and the Apps Script Executions log.');
-  } catch (e) { Logger.log('Could not send alert: ' + e); }
-}

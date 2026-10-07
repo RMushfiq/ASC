@@ -31,17 +31,18 @@ var CATALOGS = {
 var SETYL = {
   base: 'https://app.setyl.com/api/v1',
   appsPath: '/apps',      // read via GET only — POST on this path CREATES an app in Setyl
-  maxPages: 100,          // hard stop: guards against a cursor loop
-  // Candidate field names per column — first non-empty match wins. Adjust after testSetyl().
+  maxPages: 100,          // 50 apps/page → 5,000 apps max; guards against a cursor loop
+  // Setyl field per sheet column (confirmed from testSetyl, 7 Oct 2026). First non-empty match wins.
   fields: {
-    name:        ['name', 'title', 'app_name', 'application_name'],
-    description: ['description', 'summary', 'notes'],
-    category:    ['category', 'type', 'app_type'],
-    status:      ['status', 'state', 'approval_status'],
-    owner:       ['owner', 'business_owner', 'app_owner'],
-    url:         ['url', 'website', 'domain', 'login_url']
+    name:        ['name'],
+    description: [],                  // Setyl has no description field. 'notes' is internal — not published.
+    category:    [],
+    status:      ['state_name'],      // detected / onboarding / registered? / unapproved / ignored — see testSetyl
+    owner:       ['administrators'],
+    url:         []                   // 'url' / 'view_url' are Setyl links, not the vendor site — not published
   },
-  // Only these statuses appear on the intranet (lower-case). Empty array = include everything.
+  // REQUIRED allowlist of state_name values shown as "Approved" (lower-case).
+  // Left empty on purpose: syncSetyl() refuses to run until InfoSec confirms which states count as approved.
   includeStatuses: []
 };
 
