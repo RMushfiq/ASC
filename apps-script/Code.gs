@@ -7,7 +7,7 @@
  *   win   → Google Sheet "Intranet - Windows - Approved Catalog", tab "Windows"
  *   setyl → Setyl API (Sites & Apps register), synced daily into a Sheet by syncSetyl()
  *
- * Files: Code.gs (config + web app + setup) · Setyl.gs (sync + helpers) · index.html
+ * Files: Code.gs · Setyl.gs · Helpers.gs · Mapping.gs · index + css + js_enrich1-3 + js_app1-3 (HTML)
  *
  * One-time setup (see apps-script/README.md for full steps)
  *   1. Project Settings → Script Properties:
