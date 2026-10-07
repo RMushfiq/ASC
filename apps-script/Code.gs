@@ -64,6 +64,11 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/** Inlines another HTML file into index (<?!= include('css') ?>). Keeps each file small enough to paste. */
+function include(name) {
+  return HtmlService.createHtmlOutputFromFile(name).getContent();
+}
+
 /**
  * Called from the page via google.script.run.getCatalog('mac'|'win'|'setyl').
  * Returns { rows: string[][] (header first), updated: ISO string|null }.

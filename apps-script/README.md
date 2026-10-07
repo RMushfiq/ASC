@@ -14,7 +14,9 @@ Apps Script hosts the page and reads data server-side as the script owner. No pu
 2. **script.google.com** → New project → name `ASC - Approved Software Catalog`.
    - Replace `Code.gs` with `apps-script/Code.gs`.
    - Add script files `Setyl`, `Helpers` and `Mapping` (+ → Script) → paste the matching `apps-script/*.gs` file into each.
-   - Add HTML file named exactly `index` → paste `apps-script/index.html`.
+   - Add HTML files (+ → HTML), names exactly as below without `.html`, and paste each:
+     `index`, `css`, `js_enrich1`, `js_enrich2`, `js_enrich3`, `js_app1`, `js_app2`, `js_app3`.
+     Every file is under 4KB so the editor paste doesn't truncate it.
 3. **Project Settings → Script Properties**: add `SETYL_API_KEY` and `SETYL_CONSUMER_ID`.
 4. Run **`testSetyl`** (read-only) → check state counts, "Would publish" count and the Asana mapped row in the log.
 5. Run **`setup`** → creates the Setyl cache Sheet + `Sync Log` tab, installs the daily trigger, runs the first sync.

@@ -1,0 +1,88 @@
+<script>
+"use strict";
+
+var KEYS = ["mac","win","setyl"];
+var LABEL = {mac:"Mac", win:"Windows", setyl:"Sites & Apps"};
+var CHIPS = ["PDF","Notetaker","Video editing","Screenshots","Browsers","Databases","AI"];
+
+var state = {tab:"mac", q:"", cat:{}};
+KEYS.forEach(function(k){state.cat[k]={status:"loading",apps:[],err:"",updated:null};});
+
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+function stripVer(name){
+  return name.toLowerCase().replace(/\([^)]*\)/g," ").split(/\s+/).filter(function(t){
+    return t && !/^v?[\d.]+$/.test(t) && ["x64","x86","64-bit","32-bit"].indexOf(t)===-1;
+  }).join(" ").trim();
+}
+
+/* rows: header row + data. Columns are looked up by header name, so Mac/Windows
+   (3 columns) and Setyl (7 columns) share one parser. */
+function buildApps(rows){
+  var apps=[], col={name:0,install:1,desc:2}, start=0;
+  if(rows.length && /application\s*name/i.test(rows[0][0]||"")){
+    start=1;
+    rows[0].forEach(function(h,i){
+      var k={"application name":"name","install options":"install","description":"desc","auth method":"auth",
+             "status":"status","business owner":"biz","technical owner":"tech"}[String(h).trim().toLowerCase()];
+      if(k) col[k]=i;
+    });
+  }
+  function v(r,k){return col[k]===undefined?"":String(r[col[k]]||"").trim();}
+  for(var i=start;i<rows.length;i++){
+    var r=rows[i], name=v(r,"name");
+    if(!name) continue;
+    var desc=v(r,"desc"), e=ENRICH[name.toLowerCase()]||ENRICH[stripVer(name)]||{}, ai=false;
+    if(!desc && e.d){desc=e.d;ai=true;}
+    var a={name:name,install:v(r,"install"),desc:desc,ai:ai,auth:v(r,"auth"),status:v(r,"status"),
+           biz:v(r,"biz"),tech:v(r,"tech")};
+    a.hay=[name,e.t||"",a.auth,desc,a.biz,a.tech].join(" ").toLowerCase();
+    apps.push(a);
+  }
+  apps.sort(function(a,b){return a.name.localeCompare(b.name);});
+  return apps;
+}
+
+function load(key){
+  state.cat[key]={status:"loading",apps:[],err:"",updated:null};
+  render();
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(res && res.pending){state.cat[key]={status:"pending",apps:[],err:"",updated:null};}
+      else{
+        var apps=buildApps((res&&res.rows)||[]);
+        state.cat[key]=apps.length?{status:"ok",apps:apps,err:"",updated:res.updated}
+                                  :{status:"error",apps:[],err:"empty",updated:null};
+      }
+      render();
+    })
+    .withFailureHandler(function(err){
+      state.cat[key]={status:"error",apps:[],err:String(err&&err.message||err),updated:null};
+      render();
+    })
+    .getCatalog(key);
+}
+
+function singular(t){return t.length>3&&t.slice(-1)==="s"?t.slice(0,-1):t;}
+function tokMatch(hay,t){
+  if(t.length>2) return hay.indexOf(t)>-1;
+  return new RegExp("(^|[^a-z0-9])"+t.replace(/[^a-z0-9]/g,"\\$&")+"($|[^a-z0-9])").test(hay);
+}
+
+function searchApps(q,apps){
+  q=q.toLowerCase().trim();
+  if(!q) return apps.slice();
+  var tokens=q.split(/\s+/).filter(function(t){return /[a-z0-9]/.test(t);});
+  if(!tokens.length) return apps.slice();
+  var out=[];
+  apps.forEach(function(a){
+    var score=0, nm=a.name.toLowerCase();
+    if(q.length>2?nm.indexOf(q)>-1:tokMatch(nm,q)) score=100;
+    else if(tokens.every(function(t){return tokMatch(a.hay,t)||tokMatch(a.hay,singular(t));}))
+      score=nm.indexOf(tokens[0])>-1?80:60;
+    if(score) out.push({a:a,s:score});
+  });
+  out.sort(function(x,y){return y.s-x.s||x.a.name.localeCompare(y.a.name);});
+  return out.map(function(o){return o.a;});
+}
+</script>

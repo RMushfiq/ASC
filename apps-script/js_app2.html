@@ -1,0 +1,50 @@
+<script>
+function howToGet(a,key){
+  var s=(a.install||"").toLowerCase();
+  if(key==="setyl"){
+    var okta=/okta/i.test(a.auth);
+    return {cls:"m-ticket",chip:"Request access",
+      html:"Raise a <b>service-desk ticket in HappyFox</b> to request access"
+        +(okta?". Once approved it appears in your <b>Okta dashboard</b>.":" — IT Ops will set you up.")};
+  }
+  if(s.indexOf("self-service")>-1){
+    var portal=key==="mac"?"Kandji Self Service":"Company Portal";
+    return {cls:"m-self",chip:"Self-service",
+      html:"Install it yourself: open the <b>"+portal+"</b> app on your "+(key==="mac"?"Mac":"Windows laptop")+" and hit install. No ticket needed."};
+  }
+  if(s.indexOf("service-desk")>-1)
+    return {cls:"m-ticket",chip:"Service-desk ticket",
+      html:"Raise a <b>service-desk ticket in HappyFox</b> with a short business justification — IT Ops will install it for you."};
+  if(s.indexOf("provisioned")>-1)
+    return {cls:"m-itops",chip:"Managed by IT Ops",
+      html:"Comes pre-installed and managed by <b>IT Ops</b>. If it’s missing from your device, raise a service-desk ticket in HappyFox."};
+  return {cls:"m-ticket",chip:install||"Ask IT Ops",
+    html:"Raise a <b>service-desk ticket in HappyFox</b> and IT Ops will point you in the right direction."};
+}
+
+function cardHTML(a,key){
+  var how=howToGet(a,key);
+  var descHtml=a.desc
+    ? '<div class="desc">'+esc(a.desc)+(a.ai?' <span class="badge b-ai">AI-drafted — needs InfoSec confirmation</span>':"")+"</div>"
+    : '<div class="desc pending">Description pending InfoSec review.</div>';
+  return '<div class="card"><div><h3>'+esc(a.name)+'</h3><span class="badge b-ok">✓ Approved</span>'
+    +(/onboard/i.test(a.status)?' <span class="badge b-cat">Onboarding</span>':"")
+    +(a.auth?' <span class="badge b-cat">'+esc(a.auth)+"</span>":"")+"</div>"
+    +descHtml
+    +(a.biz||a.tech?'<div class="owners">'+(a.biz?"<span><b>Business owner:</b> "+esc(a.biz)+"</span>":"")
+      +(a.tech?"<span><b>Technical owner:</b> "+esc(a.tech)+"</span>":"")+"</div>":"")
+    +'<div class="how"><span class="hlabel">How to get it</span><span class="mchip '+how.cls+'">'+esc(how.chip)+"</span><div>"+how.html+"</div></div></div>";
+}
+
+function notApprovedHTML(q,key){
+  var hints=KEYS.filter(function(k){return k!==key && state.cat[k].apps.length;}).map(function(k){
+    var n=searchApps(q,state.cat[k].apps).length;
+    return n?n+" match"+(n>1?"es":"")+' in <a data-jump="'+k+'">'+LABEL[k]+"</a>":"";
+  }).filter(Boolean);
+  return '<div class="panel warn"><h2>“'+esc(q)+"” isn’t in the approved "+LABEL[key]+" catalog</h2>"
+    +"<p><b>Not approved — raise a Procurement request via HappyFox</b> with your business justification. "
+    +"InfoSec will review it (SLA: 20 working days).</p>"
+    +'<p class="hint">Please don’t install or sign up for unapproved software in the meantime — it counts as shadow IT.</p>'
+    +(hints.length?'<p class="hint">By the way — '+hints.join(", ")+".</p>":"")+"</div>";
+}
+</script>

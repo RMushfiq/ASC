@@ -1,0 +1,64 @@
+<script>
+function render(){
+  var tabs=document.querySelectorAll(".tab");
+  for(var i=0;i<tabs.length;i++) tabs[i].classList.toggle("on",tabs[i].dataset.tab===state.tab);
+  var results=document.getElementById("results"), meta=document.getElementById("meta");
+  document.getElementById("clear").style.display=state.q?"block":"none";
+
+  var key=state.tab, cat=state.cat[key];
+  meta.textContent="";
+  if(cat.status==="loading"){
+    results.innerHTML='<div class="panel"><div class="spin"></div>Loading the latest catalog…</div>';
+  } else if(cat.status==="pending"){
+    results.innerHTML='<div class="panel soon"><h2>Sites &amp; Apps — coming soon</h2>'
+      +"<p>The Setyl register sync hasn’t run yet. Until then: to request access to a web app, raise a <b>service-desk ticket in HappyFox</b>; "
+      +"to request something new, raise a <b>Procurement request via HappyFox</b>.</p></div>";
+  } else if(cat.status==="error"){
+    results.innerHTML='<div class="panel warn"><h2>Catalog data unavailable</h2>'
+      +"<p>We couldn’t load the "+LABEL[key]+" catalog just now — please try again shortly. "
+      +"If this keeps happening, let IT Ops know via a service-desk ticket.</p>"
+      +'<button id="retry">Try again</button></div>';
+    document.getElementById("retry").onclick=function(){load(key);};
+  } else {
+    var hits=searchApps(state.q,cat.apps);
+    meta.textContent=!state.q
+      ? cat.apps.length+" approved "+(key==="setyl"?"sites & apps":"apps in the "+LABEL[key]+" catalog")+" — search above or browse below."
+      : (hits.length?hits.length+" approved "+(hits.length===1?"app matches":"apps match")+" “"+state.q+"” in "+LABEL[key]+".":"");
+    if(state.q && !hits.length){
+      results.innerHTML=notApprovedHTML(state.q,key);
+      var jl=results.querySelectorAll("[data-jump]");
+      for(var j=0;j<jl.length;j++) jl[j].onclick=function(){setTab(this.dataset.jump);};
+    } else {
+      results.innerHTML='<div class="grid">'+hits.map(function(a){return cardHTML(a,key);}).join("")+"</div>";
+    }
+  }
+  renderFoot();
+}
+
+function renderFoot(){
+  var c=state.cat[state.tab], txt;
+  if(state.tab==="setyl"){
+    txt="Synced daily from the Setyl Sites & Apps register"
+      +(c.updated?" · last sync "+new Date(c.updated).toLocaleString([], {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"");
+  } else {
+    txt="Live from the InfoSec-maintained catalog Sheets (updates appear within 5 minutes)";
+  }
+  document.getElementById("foot").textContent=txt+" · Something new to request? Procurement queue in HappyFox.";
+}
+
+function setTab(t){state.tab=t;render();document.getElementById("q").focus();}
+
+document.getElementById("tabs").addEventListener("click",function(e){
+  var b=e.target.closest(".tab"); if(b) setTab(b.dataset.tab);
+});
+var qEl=document.getElementById("q");
+qEl.addEventListener("input",function(){state.q=qEl.value;render();});
+document.getElementById("clear").onclick=function(){qEl.value="";state.q="";render();qEl.focus();};
+var chipsEl=document.getElementById("chips");
+chipsEl.innerHTML=CHIPS.map(function(c){return '<button class="chip">'+c+"</button>";}).join("");
+chipsEl.addEventListener("click",function(e){
+  if(e.target.classList.contains("chip")){qEl.value=e.target.textContent;state.q=qEl.value;render();}
+});
+
+KEYS.forEach(load);
+</script>
